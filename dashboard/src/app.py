@@ -20,6 +20,10 @@ def main():
 def admin():
     st.session_state.page = "admin"
 
+def user_dashboard(nama):
+    st.session_state.page = "user"
+    st.session_state.lingkungan_nama = nama
+
 if st.session_state.page == "main":
     # add a form to add new lingkungan
     st.header("Tambah Lingkungan Baru")
@@ -54,6 +58,9 @@ elif st.session_state.page == "login":
     st.header("Login")
     login_nama = st.text_input("Nama Lingkungan")
     login_password = st.text_input("Password", type="password")
+
+    # TESTING CREDENTIALS
+    # Agnes 3, test123
     
     login_clicked = st.button("Login", key="login_submit")
     if login_clicked:
@@ -66,7 +73,8 @@ elif st.session_state.page == "login":
             if lingkungan:
                 hashed_pw = hashlib.sha256(login_password.encode()).hexdigest()
                 if lingkungan.get("password") == hashed_pw:
-                    st.success(f"Selamat Datang, Lingkungan {login_nama}!")
+                    user_dashboard(login_nama)
+                    st.rerun()
                 else:
                     st.error("Silahkan periksa nama atau password Anda.")
             else:
@@ -87,5 +95,18 @@ elif st.session_state.page == "admin":
     else:
         st.write("Tidak ada data lingkungan yang tersedia.")
     if st.button("Logout", key="admin_logout", on_click=main):
+        st.session_state.page = "main"
+        st.rerun()
+
+elif st.session_state.page == "user":
+    nama = st.session_state.get("lingkungan_nama", "")
+    lingkungan = lingkungan_collection.find_one({"nama": nama})
+    st.header(f"Selamat datang, Lingkungan {nama}!")
+    if lingkungan:
+        st.write(f"Nama Ketua: {lingkungan.get('ketua', '-')}")
+        st.write(f"Jumlah Tatib: {lingkungan.get('jumlah_tatib', '-')}")
+    else:
+        st.error("Data lingkungan tidak ditemukan.")
+    if st.button("Logout", key="user_logout", on_click=main):
         st.session_state.page = "main"
         st.rerun()
