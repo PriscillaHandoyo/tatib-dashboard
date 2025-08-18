@@ -1,6 +1,7 @@
 import hashlib
 import streamlit as st
 from db.mongodb import get_db
+from streamlit_calendar import calendar
 
 st.title("Tatib Paroki St. Yakobus Kelapa Gading")
 
@@ -37,6 +38,9 @@ def form_lingkungan():
 
 def data_lingkungan():
     set_page("data_linkungan")
+
+def kalender_penugasan():
+    set_page("kalender_penugasan")
 
 # -------------------------------------------------------------------------------
 # LOGIN PAGE
@@ -83,6 +87,8 @@ elif st.session_state.page == "admin":
                 pass
             if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
                 pass
+            if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
+                pass
             if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
                 pass
             st.markdown("----")
@@ -124,6 +130,8 @@ elif st.session_state.page == "form_lingkungan":
             pass
         if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
             pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
+            pass
         if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
             pass
         st.markdown("----")
@@ -153,6 +161,37 @@ elif st.session_state.page == "form_lingkungan":
         pass
 
 # -------------------------------------------------------------------------------
+# KALENDER PENUGASAN
+elif st.session_state.page == "kalender_penugasan":
+    st.header("Kalender Penugasan")
+
+    calendar_options = {
+        "editable": True,
+        "selectable": True,
+        "initialView": "dayGridMonth",
+        "headerToolbar": {
+            "left": "prev,next today",
+            "center": "title",
+            "right": "timeGridDay,timeGridWeek,dayGridMonth"
+        }
+    }
+    calendar_events = calendar(options=calendar_options)
+
+    # sidebar navigation
+    with st.sidebar:
+        st.header("Menu")
+        if st.button("Dashboard", key="dashboard_btn", on_click=admin):
+            pass
+        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
+            pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
+            pass
+        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
+            pass
+        st.markdown("----")
+        st.button("Logout", key="admin_logout", on_click=login)
+
+# -------------------------------------------------------------------------------
 # DATA LINGKUNGAN
 elif st.session_state.page == "data_linkungan":
     # sidebar navigation
@@ -161,6 +200,8 @@ elif st.session_state.page == "data_linkungan":
         if st.button("Dashboard", key="dashboard_btn", on_click=admin):
             pass
         if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
+            pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
             pass
         if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
             pass
