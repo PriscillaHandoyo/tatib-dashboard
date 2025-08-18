@@ -24,6 +24,10 @@ def user_dashboard(nama):
     st.session_state.page = "user"
     st.session_state.lingkungan_nama = nama
 
+# -------------------------------------------------------------------------------
+# ADD LINGKUNGAN 
+# Tambah lingkungan --> db
+# Login --> login page
 if st.session_state.page == "main":
     # add a form to add new lingkungan
     st.header("Tambah Lingkungan Baru")
@@ -53,6 +57,8 @@ if st.session_state.page == "main":
     if st.button("Login", key="main_login", on_click=login):
         login()
 
+# -------------------------------------------------------------------------------
+# LOGIN PAGE
 # Login (Main Page) clicked --> Login Page
 elif st.session_state.page == "login":
     st.header("Login")
@@ -83,6 +89,8 @@ elif st.session_state.page == "login":
     if st.button("Kembali", key="back_to_main", on_click=main):
         st.session_state.page = "main"
 
+# -------------------------------------------------------------------------------
+# ADMIN DASHBOARD
 elif st.session_state.page == "admin":
     st.header("Admin Dashboard")
     st.write("Selamat datang di dashboard, Admin!")
@@ -98,15 +106,40 @@ elif st.session_state.page == "admin":
         st.session_state.page = "main"
         st.rerun()
 
+# -------------------------------------------------------------------------------
+# USER DASHBOARD
 elif st.session_state.page == "user":
     nama = st.session_state.get("lingkungan_nama", "")
     lingkungan = lingkungan_collection.find_one({"nama": nama})
+
+    # sidebar navigation
+    with st.sidebar:
+        st.header("Menu")
+        st.markdown("Availability")
+        st.markdown("Info Lingkungan")
+        st.markdown("----")
+        st.button("Logout", key="user_logout", on_click=main)
+
     st.header(f"Selamat datang, Lingkungan {nama}!")
     if lingkungan:
-        st.write(f"Nama Ketua: {lingkungan.get('ketua', '-')}")
-        st.write(f"Jumlah Tatib: {lingkungan.get('jumlah_tatib', '-')}")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Jumlah Tatib", lingkungan.get("jumlah_tatib", 0))
+        col2.metric("Nama Ketua", lingkungan.get("ketua", "-"))
+        col3.metric("Lingkungan", nama)
+
+        st.subheader("Tatib Analytics")
+        # Example chart (replace with your own data)
+        import pandas as pd
+        import numpy as np
+        df = pd.DataFrame({
+            "Bulan": ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul"],
+            "Tatib": np.random.randint(0, 10, 7)
+        })
+        st.line_chart(df.set_index("Bulan"))
+
+        st.subheader("Tatib List")
+        # Example table (replace with your own data)
+        st.table(df)
     else:
         st.error("Data lingkungan tidak ditemukan.")
-    if st.button("Logout", key="user_logout", on_click=main):
-        st.session_state.page = "main"
-        st.rerun()
+
