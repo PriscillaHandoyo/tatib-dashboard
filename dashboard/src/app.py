@@ -1,6 +1,7 @@
 import hashlib
 import streamlit as st
 from db.mongodb import get_db
+from urllib.parse import urlencode, parse_qs
 
 st.title("Tatib Paroki St. Yakobus Kelapa Gading")
 
@@ -8,21 +9,30 @@ db = get_db()
 lingkungan_collection = db["lingkungan"]
 
 # add a form to login
-if "page" not in st.session_state:
+query_params = st.query_params
+if "page" in query_params:
+    st.session_state.page = query_params["page"]
+elif "page" not in st.session_state:
     st.session_state.page = "main"
+
+def set_page(page_name):
+    st.session_state.page = page_name
+    st.query_params["page"] = page_name
 
 def login():
-    st.session_state.page = "login"
+    set_page("login")
 
 def main():
-    st.session_state.page = "main"
+    set_page("main")
 
 def admin():
-    st.session_state.page = "admin"
+    set_page("admin")
+    st.query_params["admin"] = "true"
 
 def user_dashboard(nama):
-    st.session_state.page = "user"
+    set_page("user")
     st.session_state.lingkungan_nama = nama
+    st.query_params["lingkungan_nama"] = nama
 
 # -------------------------------------------------------------------------------
 # ADD LINGKUNGAN 
@@ -72,7 +82,7 @@ elif st.session_state.page == "login":
     if login_clicked:
         # admin login check
         if login_nama == "Admin" and login_password == "admin": # admin login details
-            st.session_state.page = "admin"
+            admin()
             st.rerun()
         else:
             lingkungan = lingkungan_collection.find_one({"nama": login_nama})
@@ -92,24 +102,34 @@ elif st.session_state.page == "login":
 # -------------------------------------------------------------------------------
 # ADMIN DASHBOARD
 elif st.session_state.page == "admin":
-    st.header("Admin Dashboard")
-    st.write("Selamat datang di dashboard, Admin!")
+    # check if admin state is in query params (for refreshing the page)
+    if st.query_params.get("admin", "") == "true":
+        # sidebar navigation
+        with st.sidebar:
+            st.header("Menu")
+            st.markdown("Availability")
+            st.markdown("Info Lingkungan")
+            st.markdown("----")
+            st.button("Logout", key="user_logout", on_click=main)
 
-    # display all lingkungan
-    lingkungan_list = list(lingkungan_collection.find())
-    if lingkungan_list:
-        st.write("Daftar Lingkungan:")
-        st.table([{k: v for k, v in lingkungan.items() if k != "_id" and k != "password"} for lingkungan in lingkungan_list])
-    else:
-        st.write("Tidak ada data lingkungan yang tersedia.")
-    if st.button("Logout", key="admin_logout", on_click=main):
-        st.session_state.page = "main"
-        st.rerun()
+        st.header("Admin Dashboard")
+        st.write("Selamat datang di dashboard, Admin!")
+
+        # display all lingkungan
+        lingkungan_list = list(lingkungan_collection.find())
+        if lingkungan_list:
+            st.write("Daftar Lingkungan:")
+            st.table([{k: v for k, v in lingkungan.items() if k != "_id" and k != "password"} for lingkungan in lingkungan_list])
+        else:
+            st.write("Tidak ada data lingkungan yang tersedia.")
+        if st.button("Logout", key="admin_logout", on_click=main):
+            st.session_state.page = "main"
+            st.rerun()
 
 # -------------------------------------------------------------------------------
 # USER DASHBOARD
 elif st.session_state.page == "user":
-    nama = st.session_state.get("lingkungan_nama", "")
+    nama = st.session_state.get("lingkungan_nama", st.query_params.get("lingkungan_nama", ""))
     lingkungan = lingkungan_collection.find_one({"nama": nama})
 
     # sidebar navigation
