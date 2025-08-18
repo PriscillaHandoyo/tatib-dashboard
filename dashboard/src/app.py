@@ -7,21 +7,18 @@ st.title("Tatib Paroki St. Yakobus Kelapa Gading")
 db = get_db()
 lingkungan_collection = db["lingkungan"]
 
-# display existing lingkungan
-# fetch all lingkungan data
-# lingkungan_list = list(lingkungan_collection.find())
-# if lingkungan_list:
-#     st.write("Daftar Lingkungan:")
-#     st.table([{k: v for k, v in lingkungan.items() if k != "_id"} for lingkungan in lingkungan_list])
-# else:
-#     st.write("Tidak ada data lingkungan yang tersedia.")
-    
 # add a form to login
 if "page" not in st.session_state:
     st.session_state.page = "main"
 
 def login():
     st.session_state.page = "login"
+
+def main():
+    st.session_state.page = "main"
+
+def admin():
+    st.session_state.page = "admin"
 
 if st.session_state.page == "main":
     # add a form to add new lingkungan
@@ -49,23 +46,46 @@ if st.session_state.page == "main":
         else:
             st.error("Semua field harus diisi.")
         
-    if st.button("Login", key="main_login"):
+    if st.button("Login", key="main_login", on_click=login):
         login()
 
+# Login (Main Page) clicked --> Login Page
 elif st.session_state.page == "login":
     st.header("Login")
     login_nama = st.text_input("Nama Lingkungan")
     login_password = st.text_input("Password", type="password")
-    if st.button("Login", key="login_submit"):
-        lingkungan = lingkungan_collection.find_one({"nama": login_nama})
-        if lingkungan:
-            hashed_pw = hashlib.sha256(login_password.encode()).hexdigest()
-            if lingkungan.get("password") == hashed_pw:
-                st.success(f"Selamat Datang, Lingkungan {login_nama}!")
-            else:
-                st.error("Silahkan periksa nama atau password Anda.")
-        else:
-            st.error("Lingkungan tidak ditemukan. Silahkan daftar terlebih dahulu.")
     
-    if st.button("Kembali", key="back_to_main"):
+    login_clicked = st.button("Login", key="login_submit")
+    if login_clicked:
+        # admin login check
+        if login_nama == "Admin" and login_password == "admin": # admin login details
+            st.session_state.page = "admin"
+            st.rerun()
+        else:
+            lingkungan = lingkungan_collection.find_one({"nama": login_nama})
+            if lingkungan:
+                hashed_pw = hashlib.sha256(login_password.encode()).hexdigest()
+                if lingkungan.get("password") == hashed_pw:
+                    st.success(f"Selamat Datang, Lingkungan {login_nama}!")
+                else:
+                    st.error("Silahkan periksa nama atau password Anda.")
+            else:
+                st.error("Lingkungan tidak ditemukan. Silahkan daftar terlebih dahulu.")
+    
+    if st.button("Kembali", key="back_to_main", on_click=main):
         st.session_state.page = "main"
+
+elif st.session_state.page == "admin":
+    st.header("Admin Dashboard")
+    st.write("Selamat datang di dashboard, Admin!")
+
+    # display all lingkungan
+    lingkungan_list = list(lingkungan_collection.find())
+    if lingkungan_list:
+        st.write("Daftar Lingkungan:")
+        st.table([{k: v for k, v in lingkungan.items() if k != "_id" and k != "password"} for lingkungan in lingkungan_list])
+    else:
+        st.write("Tidak ada data lingkungan yang tersedia.")
+    if st.button("Logout", key="admin_logout", on_click=main):
+        st.session_state.page = "main"
+        st.rerun()
