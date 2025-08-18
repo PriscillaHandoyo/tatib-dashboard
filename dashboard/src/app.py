@@ -28,11 +28,6 @@ def admin():
     set_page("admin")
     st.query_params["admin"] = "true"
 
-def user_dashboard(nama):
-    set_page("user")
-    st.session_state.lingkungan_nama = nama
-    st.query_params["lingkungan_nama"] = nama
-
 def form_lingkungan():
     set_page("form_lingkungan")
 
@@ -47,8 +42,8 @@ def kalender_penugasan():
 # Login (Main Page) clicked --> Login Page
 if st.session_state.page == "login":
     st.header("Login")
-    login_nama = st.text_input("Nama Lingkungan")
-    login_password = st.text_input("Password", type="password")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
     # TESTING CREDENTIALS
     # Agnes 3, test123
@@ -56,24 +51,11 @@ if st.session_state.page == "login":
     login_clicked = st.button("Login", key="login_submit")
     if login_clicked:
         # admin login check
-        if login_nama == "Admin" and login_password == "admin": # admin login details
+        if username == "Admin" and password == "admin": # admin login details
             admin()
             st.rerun()
         else:
-            lingkungan = lingkungan_collection.find_one({"nama": login_nama})
-            if lingkungan:
-                hashed_pw = hashlib.sha256(login_password.encode()).hexdigest()
-                if lingkungan.get("password") == hashed_pw:
-                    user_dashboard(login_nama)
-                    st.rerun()
-                else:
-                    st.error("Silahkan periksa nama atau password Anda.")
-            else:
-                st.error("Lingkungan tidak ditemukan. Silahkan daftar terlebih dahulu.")
-    
-    if st.button("Kembali", key="back_to_login", on_click=login):
-        # st.session_state.page = "login"
-        pass
+            st.error("Login gagal. Silahkan coba lagi.")
 
 # -------------------------------------------------------------------------------
 # ADMIN DASHBOARD
