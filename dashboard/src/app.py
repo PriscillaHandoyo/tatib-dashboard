@@ -147,6 +147,37 @@ elif st.session_state.page == "form_lingkungan":
 elif st.session_state.page == "kalender_penugasan":
     st.header("Kalender Penugasan")
 
+    # get all lingkungan
+    lingkungan_list = list(lingkungan_collection.find())
+
+    # prepare events for calendar
+    penugasan = []
+    for lingkungan in lingkungan_list:
+        nama = lingkungan.get("nama", "")
+        availability = lingkungan.get("availability", {})
+
+        # yakobus sabtu
+        for jam in availability.get("yakobus_sabtu", []):
+            penugasan.append({
+                "title": f"{nama} - Yakobus Sabtu",
+                "start": f"2025-08-01T{jam.replace('.',':')}:00",
+                "end": f"2025-08-01T{jam.replace('.',':')}:59"
+            })
+        # yakobus minggu
+        for jam in availability.get("yakobus_minggu", []):
+            penugasan.append({
+                "title": f"{nama} - Yakobus Minggu",
+                "start": f"2025-08-02T{jam.replace('.',':')}:00",  # Example date, adjust as needed
+                "end": f"2025-08-02T{jam.replace('.',':')}:59"
+            })
+        # pegangsaan 2 minggu
+        for jam in availability.get("p2_minggu", []):
+            penugasan.append({
+                "title": f"{nama} - Pegangsaan 2 Minggu",
+                "start": f"2025-08-02T{jam.replace('.',':')}:00",  # Example date, adjust as needed
+                "end": f"2025-08-02T{jam.replace('.',':')}:59"
+            })
+
     calendar_options = {
         "editable": True,
         "selectable": True,
@@ -155,7 +186,8 @@ elif st.session_state.page == "kalender_penugasan":
             "left": "prev,next today",
             "center": "title",
             "right": "timeGridDay,timeGridWeek,dayGridMonth"
-        }
+        },
+        "events": penugasan,
     }
     calendar_events = calendar(options=calendar_options)
 
