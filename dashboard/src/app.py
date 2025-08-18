@@ -1,7 +1,6 @@
 import hashlib
 import streamlit as st
 from db.mongodb import get_db
-from urllib.parse import urlencode, parse_qs
 
 st.title("Tatib Paroki St. Yakobus Kelapa Gading")
 
@@ -13,7 +12,7 @@ query_params = st.query_params
 if "page" in query_params:
     st.session_state.page = query_params["page"]
 elif "page" not in st.session_state:
-    st.session_state.page = "main"
+    st.session_state.page = "login"
 
 def set_page(page_name):
     st.session_state.page = page_name
@@ -21,9 +20,8 @@ def set_page(page_name):
 
 def login():
     set_page("login")
-
-def main():
-    set_page("main")
+    st.query_params.pop("admin", None)
+    st.query_params.pop("lingkungan_nama", None)
 
 def admin():
     set_page("admin")
@@ -34,43 +32,46 @@ def user_dashboard(nama):
     st.session_state.lingkungan_nama = nama
     st.query_params["lingkungan_nama"] = nama
 
+def form_lingkungan():
+    set_page("form_lingkungan")
+
 # -------------------------------------------------------------------------------
 # ADD LINGKUNGAN 
 # Tambah lingkungan --> db
 # Login --> login page
-if st.session_state.page == "main":
-    # add a form to add new lingkungan
-    st.header("Tambah Lingkungan Baru")
-    nama = st.text_input("Nama Lingkungan")
-    ketua = st.text_input("Nama Ketua Lingkungan")
-    jumlah_tatib = st.number_input("Jumlah Tatib", min_value=0, step=1)
-    password = st.text_input("Password", type="password")
+# if st.session_state.page == "main":
+#     # add a form to add new lingkungan
+#     st.header("Tambah Lingkungan Baru")
+#     nama = st.text_input("Nama Lingkungan")
+#     ketua = st.text_input("Nama Ketua Lingkungan")
+#     jumlah_tatib = st.number_input("Jumlah Tatib", min_value=0, step=1)
+#     password = st.text_input("Password", type="password")
 
-    if st.button("Tambah Lingkungan"):
-        if nama and ketua and jumlah_tatib >= 0 and password:
-            # check if lingkungan already exists
-            if lingkungan_collection.find_one({"nama": nama}):
-                st.error("Lingkungan sudah terdaftar. Silahkan Login atau gunakan nama lain.")
-            else:
-                hashed_pw = hashlib.sha256(password.encode()).hexdigest()
-                lingkungan_collection.insert_one({
-                    "nama": nama,
-                    "ketua": ketua,
-                    "jumlah_tatib": jumlah_tatib,
-                    "password": hashed_pw
-                })
-                st.success("Lingkungan berhasil ditambahkan!")
-                st.rerun()
-        else:
-            st.error("Semua field harus diisi.")
+#     if st.button("Tambah Lingkungan"):
+#         if nama and ketua and jumlah_tatib >= 0 and password:
+#             # check if lingkungan already exists
+#             if lingkungan_collection.find_one({"nama": nama}):
+#                 st.error("Lingkungan sudah terdaftar. Silahkan Login atau gunakan nama lain.")
+#             else:
+#                 hashed_pw = hashlib.sha256(password.encode()).hexdigest()
+#                 lingkungan_collection.insert_one({
+#                     "nama": nama,
+#                     "ketua": ketua,
+#                     "jumlah_tatib": jumlah_tatib,
+#                     "password": hashed_pw
+#                 })
+#                 st.success("Lingkungan berhasil ditambahkan!")
+#                 st.rerun()
+#         else:
+#             st.error("Semua field harus diisi.")
         
-    if st.button("Login", key="main_login", on_click=login):
-        login()
+#     if st.button("Login", key="main_login", on_click=login):
+#         login()
 
 # -------------------------------------------------------------------------------
 # LOGIN PAGE
 # Login (Main Page) clicked --> Login Page
-elif st.session_state.page == "login":
+if st.session_state.page == "login":
     st.header("Login")
     login_nama = st.text_input("Nama Lingkungan")
     login_password = st.text_input("Password", type="password")
@@ -96,8 +97,9 @@ elif st.session_state.page == "login":
             else:
                 st.error("Lingkungan tidak ditemukan. Silahkan daftar terlebih dahulu.")
     
-    if st.button("Kembali", key="back_to_main", on_click=main):
-        st.session_state.page = "main"
+    if st.button("Kembali", key="back_to_login", on_click=login):
+        # st.session_state.page = "login"
+        pass
 
 # -------------------------------------------------------------------------------
 # ADMIN DASHBOARD
@@ -107,10 +109,13 @@ elif st.session_state.page == "admin":
         # sidebar navigation
         with st.sidebar:
             st.header("Menu")
-            st.markdown("Availability")
+            if st.button("Dashboard", key="dashboard_btn", on_click=admin):
+                pass
+            if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
+                pass
             st.markdown("Info Lingkungan")
             st.markdown("----")
-            st.button("Logout", key="user_logout", on_click=main)
+            st.button("Logout", key="admin_logout", on_click=login)
 
         st.header("Admin Dashboard")
         st.write("Selamat datang di dashboard, Admin!")
@@ -122,44 +127,43 @@ elif st.session_state.page == "admin":
             st.table([{k: v for k, v in lingkungan.items() if k != "_id" and k != "password"} for lingkungan in lingkungan_list])
         else:
             st.write("Tidak ada data lingkungan yang tersedia.")
-        if st.button("Logout", key="admin_logout", on_click=main):
-            st.session_state.page = "main"
-            st.rerun()
 
 # -------------------------------------------------------------------------------
-# USER DASHBOARD
-elif st.session_state.page == "user":
-    nama = st.session_state.get("lingkungan_nama", st.query_params.get("lingkungan_nama", ""))
-    lingkungan = lingkungan_collection.find_one({"nama": nama})
+# FORM LINGKUNGAN
+elif st.session_state.page == "form_lingkungan":
+    st.header("Tambah Lingkungan Baru")
+    nama = st.text_input("Nama Lingkungan")
+    ketua = st.text_input("Nama Ketua Lingkungan")
+    jumlah_tatib = st.number_input("Jumlah Tatib", min_value=0, step=1)
+    availability = st.selectbox("Availability", ["Tersedia", "Tidak Tersedia"])
 
     # sidebar navigation
     with st.sidebar:
         st.header("Menu")
-        st.markdown("Availability")
+        if st.button("Dashboard", key="dashboard_btn", on_click=admin):
+            pass
+        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
+            pass
         st.markdown("Info Lingkungan")
         st.markdown("----")
-        st.button("Logout", key="user_logout", on_click=main)
+        st.button("Logout", key="admin_logout", on_click=login)
 
-    st.header(f"Selamat datang, Lingkungan {nama}!")
-    if lingkungan:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Jumlah Tatib", lingkungan.get("jumlah_tatib", 0))
-        col2.metric("Nama Ketua", lingkungan.get("ketua", "-"))
-        col3.metric("Lingkungan", nama)
+    if st.button("Tambah Lingkungan"):
+        if nama and ketua and jumlah_tatib >= 0 and availability:
+            if lingkungan_collection.find_one({"nama": nama}):
+                st.error("Lingkungan sudah terdaftar. Silahkan Login atau gunakan nama lain.")
+            else:
+                lingkungan_collection.insert_one({
+                    "nama": nama,
+                    "ketua": ketua,
+                    "jumlah_tatib": jumlah_tatib,
+                    "availability": availability,
+                })
+                st.success("Lingkungan berhasil ditambahkan!")
+                st.rerun()
+        else:
+            st.error("Semua field harus diisi.")
 
-        st.subheader("Tatib Analytics")
-        # Example chart (replace with your own data)
-        import pandas as pd
-        import numpy as np
-        df = pd.DataFrame({
-            "Bulan": ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul"],
-            "Tatib": np.random.randint(0, 10, 7)
-        })
-        st.line_chart(df.set_index("Bulan"))
-
-        st.subheader("Tatib List")
-        # Example table (replace with your own data)
-        st.table(df)
-    else:
-        st.error("Data lingkungan tidak ditemukan.")
+    if st.button("Kembali ke Admin", key="back_to_admin", on_click=admin):
+        pass
 
