@@ -2,7 +2,7 @@ import calendar
 from collections import defaultdict
 from datetime import datetime
 
-def logic (lingkungan_list, year, month, available_slots):
+def logic(lingkungan_list, year, month, available_slots):
     """
     lingkungan_list: list of dicts, each with 'nama', 'jumlah_tatib', 'availability'
     available_slots: dict of slot datetime string -> max people (default 20)
@@ -34,16 +34,18 @@ def logic (lingkungan_list, year, month, available_slots):
                         slot = f"{date.strftime('%Y-%m-%d')}T{jam.replace('.', ':')}:00"
                         slot_candidates.append((link['nama'], link['jumlah_tatib'], slot, date))    
 
-    # assign esach lingkungan to max 2 slots, no consecutive weeks
+    # assign each lingkungan to max 2 slots, no consecutive weeks
     for nama, jumlah, slot, date in sorted(slot_candidates, key=lambda x: x[2]):
         # already has 2 assignments?
         if len(lingkungan_assigned[nama]) >= 2:
             continue
 
-        # check for week break
+        # check for week break (must not be in the same week or the next week)
         assigned_dates = [d for _, d in lingkungan_assigned[nama]]
-        if assigned_dates and any(abs((date - ad).days) < 7 for ad in assigned_dates):
-            continue
+        if assigned_dates:
+            date_week = date.isocalendar()[1]
+            if any(abs(date_week - ad.isocalendar()[1]) < 2 for ad in assigned_dates):
+                continue
 
         # check slot capacity
         if slot_usage[slot] + jumlah <= available_slots.get(slot, 20):
@@ -58,10 +60,11 @@ def logic (lingkungan_list, year, month, available_slots):
             # find lingkungan not assigned to this slot and not exceeding 2 assignments
             for l in lingkungan_list:
                 if l['nama'] not in assigned and len(lingkungan_assigned[l['nama']]) < 2:
-                    # check for week break
+                    # check for week break (must not be in the same week or the next week)
                     assigned_dates = [d for _, d in lingkungan_assigned[l['nama']]]
                     slot_date = datetime.strptime(slot.split('T')[0], '%Y-%m-%d').date()
-                    if assigned_dates and any(abs((slot_date - ad).days) < 7 for ad in assigned_dates):
+                    slot_week = slot_date.isocalendar()[1]
+                    if assigned_dates and any(abs(slot_week - ad.isocalendar()[1]) < 2 for ad in assigned_dates):
                         continue
                     if total_people + l['jumlah_tatib'] <= available_slots.get(slot, 20):
                         assignments[slot].append(l['nama'])
