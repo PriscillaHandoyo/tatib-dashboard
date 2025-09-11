@@ -1,4 +1,5 @@
 import hashlib
+from components.logic import logic
 import streamlit as st
 from db.mongodb import get_db
 from streamlit_calendar import calendar
@@ -167,14 +168,14 @@ elif st.session_state.page == "kalender_penugasan":
         for jam in availability.get("yakobus_minggu", []):
             penugasan.append({
                 "title": f"{nama} - Yakobus Minggu",
-                "start": f"2025-08-02T{jam.replace('.',':')}:00",  # Example date, adjust as needed
+                "start": f"2025-08-02T{jam.replace('.',':')}:00",  
                 "end": f"2025-08-02T{jam.replace('.',':')}:59"
             })
         # pegangsaan 2 minggu
         for jam in availability.get("p2_minggu", []):
             penugasan.append({
                 "title": f"{nama} - Pegangsaan 2 Minggu",
-                "start": f"2025-08-02T{jam.replace('.',':')}:00",  # Example date, adjust as needed
+                "start": f"2025-08-02T{jam.replace('.',':')}:00",  
                 "end": f"2025-08-02T{jam.replace('.',':')}:59"
             })
 
@@ -190,6 +191,21 @@ elif st.session_state.page == "kalender_penugasan":
         "events": penugasan,
     }
     calendar_events = calendar(options=calendar_options)
+
+    assign_logic = logic(
+        lingkungan_list=lingkungan_list,
+        year=2025,  # Example year, adjust as needed
+        month=8,  # Example month, adjust as needed
+        available_slots={
+            "2025-08-01T17:00:00": 20,
+            "2025-08-02T08:00:00": 20,
+            "2025-08-02T11:00:00": 20,
+            "2025-08-02T17:00:00": 20,
+            "2025-08-02T07:30:00": 20,
+            "2025-08-02T10:30:00": 20
+        }
+    )
+        
 
     # sidebar navigation
     with st.sidebar:
