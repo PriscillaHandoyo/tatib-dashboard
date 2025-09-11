@@ -1,45 +1,55 @@
 import calendar
 from collections import defaultdict
+from datetime import datetime
 
 def logic (lingkungan_list, year, month, available_slots):
+    """
+    lingkungan_list: list of dicts, each with 'nama', 'jumlah_tatib', 'availability'
+    available_slots: dict of slot datetime string -> max people (default 20)
+    returns: dict of slot -> list of lingkungan names assigned
+    """
+
     # prepare assignment
     assignments = defaultdict(list)
     lingkungan_assigned = {l['nama']: [] for l in lingkungan_list}
+    slot_usage = defaultdict(int)
+
+    # prepare all possible slots for Saturday and Sunday
+    cal = calendar.Calendar()
+    saturdays = [d for d in cal.itermonthdates(year, month) if d.weekday() == 5 and d.month == month]
+    sundays = [d for d in cal.itermonthdates(year, month) if d.weekday() == 6 and d.month == month]
 
     # get all possible slots per lingkungan
     slot_candidates = []
     for link in lingkungan_list:
         for hari, jam_list in link.get('availability', {}).items():
-            for jam in jam_list:
-                # ex: assign to first and third week of the month
-                for week in [1, 3]:
-                    # find teh date for the week and day
-                    cal = calendar.Calendar()
-                    if 'sabtu' in hari.lower():
-                        dates = [d for d in cal.itermonthdates(year, month) if d.weekday() == 5]
-                    else:
-                        dates = [d for d in cal.itermonthdates(year,month) if d.weekday() == 6]
-                    if len(dates) >= week:
-                        date = dates[week-1]
+            if 'sabtu' in hari.lower():
+                for date in saturdays:
+                    for jam in jam_list:
                         slot = f"{date.strftime('%Y-%m-%d')}T{jam.replace('.', ':')}:00"
-                        slot_candidates.append((link['nama'], link['jumlah_tatib'], slot))
+                        slot_candidates.append((link['nama'], link['jumlah_tatib'], slot, date))
+            elif 'minggu' in hari.lower():
+                for date in sundays:
+                    for jam in jam_list:
+                        slot = f"{date.strftime('%Y-%m-%d')}T{jam.replace('.', ':')}:00"
+                        slot_candidates.append((link['nama'], link['jumlah_tatib'], slot, date))    
 
-    # assign eah lingkungan to max 2 slots, not concesutive weeks
-    slot_usage = defaultdict(int)
-    for nama, jumlah, slot in sorted(slot_candidates, key=lambda x: x[2]):
-        # check if lingkungan already has 2 assignments
+    # assign esach lingkungan to max 2 slots, no consecutive weeks
+    for nama, jumlah, slot, date in sorted(slot_candidates, key=lambda x: x[2]):
+        # already has 2 assignments?
         if len(lingkungan_assigned[nama]) >= 2:
             continue
-        # check if previous assignment is in the previous week
-        assigned_weeks = [int(a.split('-')[2][:2]) for a in lingkungan_assigned[nama]]
-        week_num = int(slot.split('-')[2][:2])
-        if assigned_weeks and abs(week_num - assigned_weeks[-1]) < 7:
+
+        # check for week break
+        assigned_dates = [d for _, d in lingkungan_assigned[nama]]
+        if assigned_dates and any(abs((date - ad).days) < 7 for ad in assigned_dates):
             continue
+
         # check slot capacity
         if slot_usage[slot] + jumlah <= available_slots.get(slot, 20):
             assignments[slot].append(nama)
             slot_usage[slot] += jumlah
-            lingkungan_assigned[nama].append(slot)
+            lingkungan_assigned[nama].append((slot, date))
     
     # fill remaining slots with other lingkungan if < 20
     for slot, assigned in assignments.items():
@@ -48,9 +58,14 @@ def logic (lingkungan_list, year, month, available_slots):
             # find lingkungan not assigned to this slot and not exceeding 2 assignments
             for l in lingkungan_list:
                 if l['nama'] not in assigned and len(lingkungan_assigned[l['nama']]) < 2:
+                    # check for week break
+                    assigned_dates = [d for _, d in lingkungan_assigned[l['nama']]]
+                    slot_date = datetime.strptime(slot.split('T')[0], '%Y-%m-%d').date()
+                    if assigned_dates and any(abs((slot_date - ad).days) < 7 for ad in assigned_dates):
+                        continue
                     if total_people + l['jumlah_tatib'] <= available_slots.get(slot, 20):
                         assignments[slot].append(l['nama'])
-                        lingkungan_assigned[l['nama']].append(slot)
+                        lingkungan_assigned[l['nama']].append((slot, slot_date))
                         total_people += l['jumlah_tatib']
                     if total_people >= available_slots.get(slot, 20):
                         break

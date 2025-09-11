@@ -190,12 +190,11 @@ elif st.session_state.page == "kalender_penugasan":
         },
         "events": penugasan,
     }
-    calendar_events = calendar(options=calendar_options)
 
     assign_logic = logic(
         lingkungan_list=lingkungan_list,
         year=2025,  # Example year, adjust as needed
-        month=8,  # Example month, adjust as needed
+        month=9,  # Example month, adjust as needed
         available_slots={
             "2025-08-01T17:00:00": 20,
             "2025-08-02T08:00:00": 20,
@@ -205,7 +204,18 @@ elif st.session_state.page == "kalender_penugasan":
             "2025-08-02T10:30:00": 20
         }
     )
-        
+
+    penugasan = []
+    for slot, lingkungan_names in assign_logic.items():
+        for nama in lingkungan_names:
+            penugasan.append({
+                "title": f"{nama} - Penugasan",
+                "start": slot,
+                "end": slot  # You can add duration if needed
+            })
+    
+    calendar_options["events"] = penugasan
+    calendar_events = calendar(options=calendar_options)
 
     # sidebar navigation
     with st.sidebar:
