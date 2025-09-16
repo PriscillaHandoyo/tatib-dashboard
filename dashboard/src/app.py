@@ -221,7 +221,7 @@ elif st.session_state.page == "kalender_penugasan":
     for slot, lingkungan_names in assign_logic.items():
         for nama in lingkungan_names:
             penugasan.append({
-                "title": f"{nama} - Penugasan",
+                "title": f"{nama}",
                 "start": slot,
                 "end": slot  # You can add duration if needed
             })
