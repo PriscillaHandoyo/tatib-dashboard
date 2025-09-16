@@ -3,6 +3,10 @@ from components.logic import logic
 import streamlit as st
 from db.mongodb import get_db
 from streamlit_calendar import calendar
+import pandas as pd
+import json
+
+st.set_page_config(layout="wide") 
 
 st.title("Tatib Paroki St. Yakobus Kelapa Gading")
 
@@ -250,9 +254,107 @@ elif st.session_state.page == "data_linkungan":
 
     st.header("Data Lingkungan")
 
+    # search bar
+    search_query = st.text_input("Cari Lingkungan (nama):").lower()
+
+    # define all possible slots
+    slots = [
+        ("yakobus_sabtu", "17.00", "Yakobus Sabtu 17.00"),
+        ("yakobus_minggu", "08.00", "Yakobus Minggu 08.00"),
+        ("yakobus_minggu", "11.00", "Yakobus Minggu 11.00"),
+        ("yakobus_minggu", "17.00", "Yakobus Minggu 17.00"),
+        ("p2_minggu", "07.30", "P2 Minggu 07.30"),
+        ("p2_minggu", "10.30", "P2 Minggu 10.30"),
+    ]
+
     # display all lingkungan
     lingkungan_list = list(lingkungan_collection.find())
+    if search_query:
+        lingkungan_list = [l for l in lingkungan_list if search_query in l.get("nama", "").lower()]
+
     if lingkungan_list:
-        st.table([{k: v for k, v in lingkungan.items() if k != "_id" and k != "password"} for lingkungan in lingkungan_list])
+        st.markdown("""
+        <style>
+        .st-emotion-cache-1y4p8pa {padding: 0;}
+        .st-emotion-cache-1y4p8pa button {margin: 0 2px;}
+        .st-emotion-cache-1y4p8pa div {text-align: center;}
+        </style>
+        """, unsafe_allow_html=True)
+        st.write("### Tabel Lingkungan")
+
+        # Table header
+        cols = ["Update", "Delete", "Nama", "Ketua", "Jumlah Tatib"] + [slot[2] for slot in slots]
+        header = st.columns(len(cols))
+        for i, col_name in enumerate(cols):
+            header[i].markdown(f"<b>{col_name}</b>", unsafe_allow_html=True)
+
+        # Table rows
+        for lingkungan in lingkungan_list:
+            avail = lingkungan.get("availability", {})
+            if isinstance(avail, str):
+                try:
+                    avail = json.loads(avail)
+                except Exception:
+                    avail = {}
+            col_update, col_delete, *col_rest = st.columns(len(cols))
+            # Update button
+            if col_update.button("✏️", key=f"update_{lingkungan['_id']}"):
+                st.session_state[f"edit_{lingkungan['_id']}"] = True
+            # Delete button
+            if col_delete.button("🗑️", key=f"delete_{lingkungan['_id']}"):
+                lingkungan_collection.delete_one({"_id": lingkungan["_id"]})
+                st.warning(f"Lingkungan {lingkungan.get('nama','')} berhasil dihapus!")
+                st.rerun()
+            # Edit form
+            if st.session_state.get(f"edit_{lingkungan['_id']}", False):
+                new_ketua = col_rest[1].text_input("", value=lingkungan.get("ketua",""), key=f"edit_ketua_{lingkungan['_id']}")
+                new_jumlah = col_rest[2].number_input("", min_value=0, value=int(lingkungan.get("jumlah_tatib",0)), key=f"edit_jumlah_{lingkungan['_id']}")
+
+                # Availability editing
+                new_avail = {}
+                # Track which slot_types have already been rendered
+                rendered_types = set()
+                for idx, (slot_type, slot_time, slot_label) in enumerate(slots):
+                    if slot_type not in rendered_types:
+                        if slot_type == "yakobus_sabtu":
+                            options = ["17.00"]
+                        elif slot_type == "yakobus_minggu":
+                            options = ["08.00", "11.00", "17.00"]
+                        elif slot_type == "p2_minggu":
+                            options = ["07.30", "10.30"]
+                        else:
+                            options = []
+                        current_times = avail.get(slot_type, [])
+                        new_avail[slot_type] = col_rest[3+idx].multiselect(
+                            f"{slot_label.split()[0]}",
+                            options,
+                            default=current_times,
+                            key=f"edit_avail_{slot_type}_{lingkungan['_id']}"
+                        )
+                        rendered_types.add(slot_type)
+
+                # Place the save button ONCE per row, after all multiselects
+                if col_update.button("💾 Simpan", key=f"save_{lingkungan['_id']}"):
+                    lingkungan_collection.update_one(
+                        {"_id": lingkungan["_id"]},
+                        {"$set": {
+                            "ketua": new_ketua,
+                            "jumlah_tatib": new_jumlah,
+                            "availability": new_avail
+                        }}
+                    )
+                    st.success("Data lingkungan berhasil diupdate!")
+                    st.session_state[f"edit_{lingkungan['_id']}"] = False
+                    st.rerun()
+                col_rest[0].write(lingkungan.get("nama", ""))
+            else:
+                col_rest[0].write(lingkungan.get("nama", ""))
+                col_rest[1].write(lingkungan.get("ketua", ""))
+                col_rest[2].write(lingkungan.get("jumlah_tatib", ""))
+            # Availability columns
+            for idx, (slot_type, slot_time, _) in enumerate(slots):
+                times = avail.get(slot_type, [])
+                status = "✅" if slot_time in times else "❌"
+                col_rest[3+idx].markdown(f"<span style='font-size:18px'>{status}</span>", unsafe_allow_html=True)
     else:
         st.write("Tidak ada data lingkungan yang tersedia.")
