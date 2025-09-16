@@ -87,27 +87,36 @@ elif st.session_state.page == "admin":
 # -------------------------------------------------------------------------------
 # FORM LINGKUNGAN
 elif st.session_state.page == "form_lingkungan":
+    # Reset form fields if needed
+    if st.session_state.get("reset_form", False):
+        st.session_state["Nama Lingkungan"] = ""
+        st.session_state["Nama Ketua Lingkungan"] = ""
+        st.session_state["Jumlah Tatib"] = 0
+        st.session_state["Gereja St. Yakbus: Sabtu"] = []
+        st.session_state["Gereja St. Yakbus: Minggu"] = []
+        st.session_state["Pegangsaan 2: Minggu"] = []
+        st.session_state["reset_form"] = False
+
     st.header("Tambah Lingkungan Baru")
-    nama = st.text_input("Nama Lingkungan")
-    ketua = st.text_input("Nama Ketua Lingkungan")
-    jumlah_tatib = st.number_input("Jumlah Tatib", min_value=0, step=1)
+    nama = st.text_input("Nama Lingkungan", key="Nama Lingkungan")
+    ketua = st.text_input("Nama Ketua Lingkungan", key="Nama Ketua Lingkungan")
+    jumlah_tatib = st.number_input("Jumlah Tatib", min_value=0, step=1, key="Jumlah Tatib")
     
     st.subheader("Availability")
-
-    # Yakobus
     yakobus_sabtu = st.multiselect(
         "Gereja St. Yakbus: Sabtu",
-        ["17.00"]
+        ["17.00"],
+        key="Gereja St. Yakbus: Sabtu"
     )
     yakobus_minggu = st.multiselect(
         "Gereja St. Yakbus: Minggu",
-        ["08.00", "11.00", "17.00"]
+        ["08.00", "11.00", "17.00"],
+        key="Gereja St. Yakbus: Minggu"
     )
-
-    # Pegangsaan 2
     p2_minggu = st.multiselect(
         "Pegangsaan 2: Minggu",
-        ["07.30", "10.30"]
+        ["07.30", "10.30"],
+        key="Pegangsaan 2: Minggu"
     )
 
     # sidebar navigation
@@ -140,12 +149,11 @@ elif st.session_state.page == "form_lingkungan":
                     }
                 })
                 st.success("Lingkungan berhasil ditambahkan!")
+                # Set flag to reset form fields on next rerun
+                st.session_state["reset_form"] = True
                 st.rerun()
         else:
             st.error("Semua field harus diisi.")
-
-    if st.button("Kembali ke Admin", key="back_to_admin", on_click=admin):
-        pass
 
 # -------------------------------------------------------------------------------
 # KALENDER PENUGASAN
