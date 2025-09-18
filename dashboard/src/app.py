@@ -44,6 +44,12 @@ def data_lingkungan():
 def kalender_penugasan():
     set_page("kalender_penugasan")
 
+def natal_penugasan():
+    set_page("natal_penugasan")
+
+def paskah_penugasan():
+    set_page("paskah_penugasan")
+
 # -------------------------------------------------------------------------------
 # LOGIN PAGE
 # Login (Main Page) clicked --> Login Page
@@ -72,14 +78,12 @@ elif st.session_state.page == "admin":
         # sidebar navigation
         with st.sidebar:
             st.header("Menu")
-            if st.button("Dashboard", key="dashboard_btn", on_click=admin):
-                pass
-            if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
-                pass
-            if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
-                pass
-            if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
-                pass
+            if st.button("Dashboard", key="dashboard_btn", on_click=admin): pass
+            if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan): pass
+            if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan): pass
+            if st.button("Natal", key="natal_btn", on_click=natal_penugasan): pass
+            if st.button("Paskah", key="paskah_btn", on_click=paskah_penugasan): pass
+            if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan): pass
             st.markdown("----")
             st.button("Logout", key="admin_logout", on_click=login)
 
@@ -124,14 +128,12 @@ elif st.session_state.page == "form_lingkungan":
     # sidebar navigation
     with st.sidebar:
         st.header("Menu")
-        if st.button("Dashboard", key="dashboard_btn", on_click=admin):
-            pass
-        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
-            pass
-        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
-            pass
-        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
-            pass
+        if st.button("Dashboard", key="dashboard_btn", on_click=admin): pass
+        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan): pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan): pass
+        if st.button("Natal", key="natal_btn", on_click=natal_penugasan): pass
+        if st.button("Paskah", key="paskah_btn", on_click=paskah_penugasan): pass
+        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan): pass
         st.markdown("----")
         st.button("Logout", key="admin_logout", on_click=login)
 
@@ -245,14 +247,127 @@ elif st.session_state.page == "kalender_penugasan":
     # sidebar navigation
     with st.sidebar:
         st.header("Menu")
-        if st.button("Dashboard", key="dashboard_btn", on_click=admin):
-            pass
-        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
-            pass
-        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
-            pass
-        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
-            pass
+        if st.button("Dashboard", key="dashboard_btn", on_click=admin): pass
+        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan): pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan): pass
+        if st.button("Natal", key="natal_btn", on_click=natal_penugasan): pass
+        if st.button("Paskah", key="paskah_btn", on_click=paskah_penugasan): pass
+        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan): pass
+        st.markdown("----")
+        st.button("Logout", key="admin_logout", on_click=login)
+
+# -------------------------------------------------------------------------------
+# NATAL 
+elif st.session_state.page == "natal_penugasan":
+    st.header("Penugasan Khusus (Natal)")
+    event_date = st.date_input("Tanggal Event")
+    slot_times = st.text_input("Jam Slot (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
+    slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=40)
+    
+    lingkungan_list = list(lingkungan_collection.find())
+    
+    if st.button("Buat Penugasan"):
+        slots = [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00" for jam in slot_times.split(",")]
+        assignments = {}
+        lingkungan_idx = 0
+        n_lingkungan = len(lingkungan_list)
+        for slot in slots:
+            assignments[slot] = []
+            total_people = 0
+            count = 0
+            # Assign lingkungan in rotation, only once per event
+            while total_people < slot_capacity and count < n_lingkungan:
+                l = lingkungan_list[lingkungan_idx % n_lingkungan]
+                if l['nama'] not in [nama for slot_list in assignments.values() for nama in slot_list]:
+                    assignments[slot].append(l['nama'])
+                    total_people += l['jumlah_tatib']
+                    lingkungan_idx += 1
+                    count += 1
+                else:
+                    lingkungan_idx += 1
+                    count += 1
+        # Display assignments in table
+        st.write("Tabel Penugasan:")
+        for slot, names in assignments.items():
+            st.write(f"**{slot}**")
+            st.table(pd.DataFrame({"Lingkungan": names}))
+    
+    # sidebar navigation
+    with st.sidebar:
+        st.header("Menu")
+        if st.button("Dashboard", key="dashboard_btn", on_click=admin): pass
+        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan): pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan): pass
+        if st.button("Natal", key="natal_btn", on_click=natal_penugasan): pass
+        if st.button("Paskah", key="paskah_btn", on_click=paskah_penugasan): pass
+        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan): pass
+        st.markdown("----")
+        st.button("Logout", key="admin_logout", on_click=login)
+
+# -------------------------------------------------------------------------------
+# PASKAH
+elif st.session_state.page == "paskah_penugasan":
+    st.header("Penugasan Khusus (Paskah)")
+    event_date = st.date_input("Tanggal Event")
+    slot_times_ra = st.text_input("Jam Slot: Rabu Abu (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
+    slot_times_mp = st.text_input("Jam Slot: Minggu Palma (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
+    slot_times_kp = st.text_input("Jam Slot: Kamis Putih (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
+    slot_times_ja = st.text_input("Jam Slot: Jumat Agung (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
+    slot_times_sc = st.text_input("Jam Slot: Sabtu Suci (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
+    slot_times_mpas = st.text_input("Jam Slot: Minggu Paskah (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
+    slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=40)
+    
+    lingkungan_list = list(lingkungan_collection.find())
+    
+    if st.button("Buat Penugasan"):
+        # Combine all slot times into one list
+        all_slots = []
+        if slot_times_ra:
+            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Rabu Abu" for jam in slot_times_ra.split(",") if jam.strip()]
+        if slot_times_mp:
+            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Minggu Palma" for jam in slot_times_mp.split(",") if jam.strip()]
+        if slot_times_kp:
+            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Kamis Putih" for jam in slot_times_kp.split(",") if jam.strip()]
+        if slot_times_ja:
+            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Jumat Agung" for jam in slot_times_ja.split(",") if jam.strip()]
+        if slot_times_sc:
+            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Sabtu Suci" for jam in slot_times_sc.split(",") if jam.strip()]
+        if slot_times_mpas:
+            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Minggu Paskah" for jam in slot_times_mpas.split(",") if jam.strip()]
+        
+        assignments = {}
+        lingkungan_idx = 0
+        n_lingkungan = len(lingkungan_list)
+        for slot in all_slots:
+            assignments[slot] = []
+            total_people = 0
+            count = 0
+            # Assign lingkungan in rotation, only once per event
+            while total_people < slot_capacity and count < n_lingkungan:
+                l = lingkungan_list[lingkungan_idx % n_lingkungan]
+                if l['nama'] not in [nama for slot_list in assignments.values() for nama in slot_list]:
+                    assignments[slot].append(l['nama'])
+                    total_people += l['jumlah_tatib']
+                    lingkungan_idx += 1
+                    count += 1
+                else:
+                    lingkungan_idx += 1
+                    count += 1
+        # Display assignments in table
+        st.write("Tabel Penugasan:")
+        for slot, names in assignments.items():
+            st.write(f"**{slot}**")
+            st.table(pd.DataFrame({"Lingkungan": names}))
+    
+    # sidebar navigation
+    with st.sidebar:
+        st.header("Menu")
+        if st.button("Dashboard", key="dashboard_btn", on_click=admin): pass
+        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan): pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan): pass
+        if st.button("Natal", key="natal_btn", on_click=natal_penugasan): pass
+        if st.button("Paskah", key="paskah_btn", on_click=paskah_penugasan): pass
+        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan): pass
         st.markdown("----")
         st.button("Logout", key="admin_logout", on_click=login)
 
@@ -262,14 +377,12 @@ elif st.session_state.page == "data_linkungan":
     # sidebar navigation
     with st.sidebar:
         st.header("Menu")
-        if st.button("Dashboard", key="dashboard_btn", on_click=admin):
-            pass
-        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan):
-            pass
-        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan):
-            pass
-        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan):
-            pass
+        if st.button("Dashboard", key="dashboard_btn", on_click=admin): pass
+        if st.button("Form Lingkungan", key="form_lingkungan_btn", on_click=form_lingkungan): pass
+        if st.button("Kalender Penugasan", key="kalender_btn", on_click=kalender_penugasan): pass
+        if st.button("Natal", key="natal_btn", on_click=natal_penugasan): pass
+        if st.button("Paskah", key="paskah_btn", on_click=paskah_penugasan): pass
+        if st.button("Data Lingkungan", key="data_lingkungan_btn", on_click=data_lingkungan): pass
         st.markdown("----")
         st.button("Logout", key="admin_logout", on_click=login)
 
