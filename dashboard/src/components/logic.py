@@ -48,7 +48,7 @@ def logic(lingkungan_list, year, month, available_slots):
                 continue
 
         # check slot capacity
-        if slot_usage[slot] + jumlah <= available_slots.get(slot, 20):
+        if slot_usage[slot] == 0 or slot_usage[slot] + jumlah <= available_slots.get(slot, 20):
             assignments[slot].append(nama)
             slot_usage[slot] += jumlah
             lingkungan_assigned[nama].append((slot, date))
@@ -66,7 +66,7 @@ def logic(lingkungan_list, year, month, available_slots):
                     slot_week = slot_date.isocalendar()[1]
                     if assigned_dates and any(abs(slot_week - ad.isocalendar()[1]) < 2 for ad in assigned_dates):
                         continue
-                    if total_people + l['jumlah_tatib'] <= available_slots.get(slot, 20):
+                    if total_people == 0 or total_people + l['jumlah_tatib'] <= available_slots.get(slot, 20):
                         assignments[slot].append(l['nama'])
                         lingkungan_assigned[l['nama']].append((slot, slot_date))
                         total_people += l['jumlah_tatib']
