@@ -34,43 +34,47 @@ def logic(lingkungan_list, year, month, available_slots):
                         slot = f"{date.strftime('%Y-%m-%d')}T{jam.replace('.', ':')}:00"
                         slot_candidates.append((link['nama'], link['jumlah_tatib'], slot, date))    
 
-    # assign each lingkungan to max 2 slots, no consecutive weeks
-    for nama, jumlah, slot, date in sorted(slot_candidates, key=lambda x: x[2]):
-        # already has 2 assignments?
-        if len(lingkungan_assigned[nama]) >= 2:
-            continue
+    # Track which slots have been taken
+    slots_taken = set()
+    # Track which lingkungan has been assigned
+    lingkungan_assigned_once = set()
 
-        # check for week break (must not be in the same week or the next week)
-        assigned_dates = [d for _, d in lingkungan_assigned[nama]]
-        if assigned_dates:
-            date_week = date.isocalendar()[1]
-            if any(abs(date_week - ad.isocalendar()[1]) < 2 for ad in assigned_dates):
-                continue
-
-        # check slot capacity
-        if slot_usage[slot] == 0 or slot_usage[slot] + jumlah <= available_slots.get(slot, 20):
-            assignments[slot].append(nama)
-            slot_usage[slot] += jumlah
-            lingkungan_assigned[nama].append((slot, date))
+    for link in lingkungan_list:
+        # Find all possible slots for this lingkungan
+        possible_slots = []
+        for hari, jam_list in link.get('availability', {}).items():
+            if 'sabtu' in hari.lower():
+                for date in saturdays:
+                    for jam in jam_list:
+                        slot = f"{date.strftime('%Y-%m-%d')}T{jam.replace('.', ':')}:00"
+                        possible_slots.append((slot, date))
+            elif 'minggu' in hari.lower():
+                for date in sundays:
+                    for jam in jam_list:
+                        slot = f"{date.strftime('%Y-%m-%d')}T{jam.replace('.', ':')}:00"
+                        possible_slots.append((slot, date))
+        # Sort slots by date
+        possible_slots.sort(key=lambda x: x[0])
+        # Assign to the first slot not already taken
+        for slot, date in possible_slots:
+            if slot not in slots_taken:
+                assignments[slot].append(link['nama'])
+                slot_usage[slot] += link['jumlah_tatib']
+                slots_taken.add(slot)
+                lingkungan_assigned_once.add(link['nama'])
+                break  # Only one assignment per lingkungan
     
     # fill remaining slots with other lingkungan if < 20
     for slot, assigned in assignments.items():
         total_people = sum([next(l['jumlah_tatib'] for l in lingkungan_list if l['nama'] == n) for n in assigned])
         if total_people < available_slots.get(slot, 20):
-            # find lingkungan not assigned to this slot and not exceeding 2 assignments
+            # find lingkungan not assigned anywhere yet
             for l in lingkungan_list:
-                if l['nama'] not in assigned and len(lingkungan_assigned[l['nama']]) < 2:
-                    # check for week break (must not be in the same week or the next week)
-                    assigned_dates = [d for _, d in lingkungan_assigned[l['nama']]]
-                    slot_date = datetime.strptime(slot.split('T')[0], '%Y-%m-%d').date()
-                    slot_week = slot_date.isocalendar()[1]
-                    if assigned_dates and any(abs(slot_week - ad.isocalendar()[1]) < 2 for ad in assigned_dates):
-                        continue
-                    if total_people == 0 or total_people + l['jumlah_tatib'] <= available_slots.get(slot, 20):
-                        assignments[slot].append(l['nama'])
-                        lingkungan_assigned[l['nama']].append((slot, slot_date))
-                        total_people += l['jumlah_tatib']
+                if l['nama'] not in assigned and l['nama'] not in lingkungan_assigned_once:
+                    assignments[slot].append(l['nama'])
+                    lingkungan_assigned_once.add(l['nama'])
+                    total_people += l['jumlah_tatib']
                     if total_people >= available_slots.get(slot, 20):
                         break
-    
+
     return dict(assignments)

@@ -1,3 +1,4 @@
+from datetime import datetime
 import hashlib
 from components.logic import logic
 import streamlit as st
@@ -160,6 +161,10 @@ elif st.session_state.page == "form_lingkungan":
 elif st.session_state.page == "kalender_penugasan":
     st.header("Kalender Penugasan")
 
+    today = datetime.today()
+    year = today.year
+    month = today.month
+
     # get all lingkungan
     lingkungan_list = list(lingkungan_collection.find())
 
@@ -205,8 +210,8 @@ elif st.session_state.page == "kalender_penugasan":
 
     assign_logic = logic(
         lingkungan_list=lingkungan_list,
-        year=2025,  # Example year, adjust as needed
-        month=9,  # Example month, adjust as needed
+        year=year,  # Example year, adjust as needed
+        month=month,  # Example month, adjust as needed
         available_slots={
             "2025-08-01T17:00:00": 20,
             "2025-08-02T08:00:00": 20,
