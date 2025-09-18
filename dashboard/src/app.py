@@ -6,6 +6,7 @@ from db.mongodb import get_db
 from streamlit_calendar import calendar
 import pandas as pd
 import json
+import calendar as pycalendar
 
 st.set_page_config(layout="wide") 
 
@@ -161,65 +162,41 @@ elif st.session_state.page == "form_lingkungan":
 elif st.session_state.page == "kalender_penugasan":
     st.header("Kalender Penugasan")
 
+        # Month/year selector
     today = datetime.today()
-    year = today.year
-    month = today.month
+    selected_year = st.number_input("Tahun", min_value=2020, max_value=2100, value=today.year, step=1)
+    selected_month = st.selectbox(
+        "Bulan",
+        options=list(range(1, 13)),
+        format_func=lambda x: datetime(1900, x, 1).strftime('%B'),
+        index=today.month-1
+    )
 
-    # get all lingkungan
+    # Add instruction banner
+    st.info("Gunakan pilihan bulan/tahun di atas untuk mengganti penugasan. Tombol panah di kalender tidak aktif dan tidak mengubah data penugasan.")
+
     lingkungan_list = list(lingkungan_collection.find())
 
-    # prepare events for calendar
-    penugasan = []
-    for lingkungan in lingkungan_list:
-        nama = lingkungan.get("nama", "")
-        availability = lingkungan.get("availability", {})
+    # Generate slots for selected month/year
+    cal = pycalendar.Calendar()
+    saturdays = [d for d in cal.itermonthdates(selected_year, selected_month) if d.weekday() == 5 and d.month == selected_month]
+    sundays = [d for d in cal.itermonthdates(selected_year, selected_month) if d.weekday() == 6 and d.month == selected_month]
 
-        # yakobus sabtu
-        for jam in availability.get("yakobus_sabtu", []):
-            penugasan.append({
-                "title": f"{nama} - Yakobus Sabtu",
-                "start": f"2025-08-01T{jam.replace('.',':')}:00",
-                "end": f"2025-08-01T{jam.replace('.',':')}:59"
-            })
-        # yakobus minggu
-        for jam in availability.get("yakobus_minggu", []):
-            penugasan.append({
-                "title": f"{nama} - Yakobus Minggu",
-                "start": f"2025-08-02T{jam.replace('.',':')}:00",  
-                "end": f"2025-08-02T{jam.replace('.',':')}:59"
-            })
-        # pegangsaan 2 minggu
-        for jam in availability.get("p2_minggu", []):
-            penugasan.append({
-                "title": f"{nama} - Pegangsaan 2 Minggu",
-                "start": f"2025-08-02T{jam.replace('.',':')}:00",  
-                "end": f"2025-08-02T{jam.replace('.',':')}:59"
-            })
-
-    calendar_options = {
-        "editable": True,
-        "selectable": True,
-        "initialView": "dayGridMonth",
-        "headerToolbar": {
-            "left": "prev,next today",
-            "center": "title",
-            "right": "timeGridDay,timeGridWeek,dayGridMonth"
-        },
-        "events": penugasan,
-    }
+    available_slots = {}
+    for date in saturdays:
+        available_slots[f"{date.strftime('%Y-%m-%d')}T17:00:00"] = 20
+    for date in sundays:
+        available_slots[f"{date.strftime('%Y-%m-%d')}T08:00:00"] = 20
+        available_slots[f"{date.strftime('%Y-%m-%d')}T11:00:00"] = 20
+        available_slots[f"{date.strftime('%Y-%m-%d')}T17:00:00"] = 20
+        available_slots[f"{date.strftime('%Y-%m-%d')}T07:30:00"] = 20
+        available_slots[f"{date.strftime('%Y-%m-%d')}T10:30:00"] = 20
 
     assign_logic = logic(
         lingkungan_list=lingkungan_list,
-        year=year,  # Example year, adjust as needed
-        month=month,  # Example month, adjust as needed
-        available_slots={
-            "2025-08-01T17:00:00": 20,
-            "2025-08-02T08:00:00": 20,
-            "2025-08-02T11:00:00": 20,
-            "2025-08-02T17:00:00": 20,
-            "2025-08-02T07:30:00": 20,
-            "2025-08-02T10:30:00": 20
-        }
+        year=selected_year,
+        month=selected_month,
+        available_slots=available_slots
     )
 
     penugasan = []
@@ -228,10 +205,30 @@ elif st.session_state.page == "kalender_penugasan":
             penugasan.append({
                 "title": f"{nama}",
                 "start": slot,
-                "end": slot  # You can add duration if needed
+                "end": slot
             })
-    
-    calendar_options["events"] = penugasan
+
+    calendar_options = {
+        "editable": True,
+        "selectable": True,
+        "initialView": "dayGridMonth",
+        "initialDate": f"{selected_year}-{selected_month:02d}-01",  # <-- Add this line
+        "headerToolbar": {
+            "left": "prev,next today",
+            "center": "title",
+            "right": "timeGridDay,timeGridWeek,dayGridMonth"
+        },
+        "events": penugasan,
+    }
+
+    st.markdown("""
+    <style>
+    .fc-header-toolbar{
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     calendar_events = calendar(options=calendar_options)
 
     # sidebar navigation
