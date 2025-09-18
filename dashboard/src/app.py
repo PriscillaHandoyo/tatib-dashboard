@@ -192,11 +192,22 @@ elif st.session_state.page == "kalender_penugasan":
         available_slots[f"{date.strftime('%Y-%m-%d')}T07:30:00"] = 20
         available_slots[f"{date.strftime('%Y-%m-%d')}T10:30:00"] = 20
 
-    assign_logic = logic(
+    def get_global_rotation_idx(year, month, all_slots_per_month):
+        # Calculate how many slots have been assigned before this month
+        # For example, if each month has 8 slots, and you are in October (month=10), and you started in September (month=9):
+        # total_slots_before = (month - start_month) * slots_per_month
+        # If you want to start from January, use (month-1)
+        return (year * 12 + month - 1) * all_slots_per_month
+
+    slots_per_month = len(saturdays) + len(sundays) * 5  # adjust based on your slot generation
+    rotation_idx = get_global_rotation_idx(selected_year, selected_month, slots_per_month)
+
+    assign_logic, _ = logic(
         lingkungan_list=lingkungan_list,
         year=selected_year,
         month=selected_month,
-        available_slots=available_slots
+        available_slots=available_slots,
+        start_idx=rotation_idx
     )
 
     penugasan = []
