@@ -15,6 +15,9 @@ st.title("Tatib Paroki St. Yakobus Kelapa Gading")
 db = get_db()
 lingkungan_collection = db["lingkungan"]
 
+natal_assignments_collection = db["natal_assignments"]
+paskah_assignments_collection = db["paskah_assignments"]
+
 # add a form to login
 query_params = st.query_params
 if "page" in query_params:
@@ -263,11 +266,14 @@ elif st.session_state.page == "natal_penugasan":
     event_date = st.date_input("Tanggal Event")
     slot_times = st.text_input("Jam Slot (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
     slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=40)
-    
     lingkungan_list = list(lingkungan_collection.find())
-    
+
+    # Load assignments from DB
+    saved = natal_assignments_collection.find_one({"_id": "natal"})
+    assignments = saved["assignments"] if saved else {}
+
     if st.button("Buat Penugasan"):
-        slots = [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00" for jam in slot_times.split(",")]
+        slots = [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00" for jam in slot_times.split(",") if jam.strip()]
         assignments = {}
         lingkungan_idx = 0
         n_lingkungan = len(lingkungan_list)
@@ -275,7 +281,6 @@ elif st.session_state.page == "natal_penugasan":
             assignments[slot] = []
             total_people = 0
             count = 0
-            # Assign lingkungan in rotation, only once per event
             while total_people < slot_capacity and count < n_lingkungan:
                 l = lingkungan_list[lingkungan_idx % n_lingkungan]
                 if l['nama'] not in [nama for slot_list in assignments.values() for nama in slot_list]:
@@ -286,12 +291,25 @@ elif st.session_state.page == "natal_penugasan":
                 else:
                     lingkungan_idx += 1
                     count += 1
-        # Display assignments in table
+        # Save to DB
+        natal_assignments_collection.replace_one(
+            {"_id": "natal"},
+            {"_id": "natal", "assignments": assignments},
+            upsert=True
+        )
+
+    # Delete Table button
+    if st.button("Hapus Tabel Penugasan"):
+        natal_assignments_collection.delete_one({"_id": "natal"})
+        assignments = {}
+
+    # Display assignments in table if exists
+    if assignments:
         st.write("Tabel Penugasan:")
         for slot, names in assignments.items():
             st.write(f"**{slot}**")
             st.table(pd.DataFrame({"Lingkungan": names}))
-    
+
     # sidebar navigation
     with st.sidebar:
         st.header("Menu")
@@ -318,9 +336,12 @@ elif st.session_state.page == "paskah_penugasan":
     slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=40)
     
     lingkungan_list = list(lingkungan_collection.find())
-    
+
+    # Load assignments from DB
+    saved = paskah_assignments_collection.find_one({"_id": "paskah"})
+    assignments = saved["assignments"] if saved else {}
+
     if st.button("Buat Penugasan"):
-        # Combine all slot times into one list
         all_slots = []
         if slot_times_ra:
             all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Rabu Abu" for jam in slot_times_ra.split(",") if jam.strip()]
@@ -342,7 +363,6 @@ elif st.session_state.page == "paskah_penugasan":
             assignments[slot] = []
             total_people = 0
             count = 0
-            # Assign lingkungan in rotation, only once per event
             while total_people < slot_capacity and count < n_lingkungan:
                 l = lingkungan_list[lingkungan_idx % n_lingkungan]
                 if l['nama'] not in [nama for slot_list in assignments.values() for nama in slot_list]:
@@ -353,12 +373,25 @@ elif st.session_state.page == "paskah_penugasan":
                 else:
                     lingkungan_idx += 1
                     count += 1
-        # Display assignments in table
+        # Save to DB
+        paskah_assignments_collection.replace_one(
+            {"_id": "paskah"},
+            {"_id": "paskah", "assignments": assignments},
+            upsert=True
+        )
+
+    # Delete Table button
+    if st.button("Hapus Tabel Penugasan"):
+        paskah_assignments_collection.delete_one({"_id": "paskah"})
+        assignments = {}
+
+    # Display assignments in table if exists
+    if assignments:
         st.write("Tabel Penugasan:")
         for slot, names in assignments.items():
             st.write(f"**{slot}**")
             st.table(pd.DataFrame({"Lingkungan": names}))
-    
+
     # sidebar navigation
     with st.sidebar:
         st.header("Menu")
