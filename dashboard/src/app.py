@@ -400,17 +400,19 @@ elif st.session_state.page == "ml_penugasan":
     if st.button("Buat Penugasan"):
         slots = [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 {nama_misa}" for jam in slot_times.split(",") if jam.strip()]
         assignments = {}
-        lingkungan_pool = lingkungan_names.copy()
-        random.shuffle(lingkungan_pool)
+        max_tatib = int(slot_capacity * 1.3)  # <-- Add this line
         for slot in slots:
             assignments[slot] = []
-            if lingkungan_pool:
-                assignments[slot].append(lingkungan_pool.pop())
+            lingkungan_pool = lingkungan_list.copy()
+            random.shuffle(lingkungan_pool)
             total_people = 0
-            while total_people < slot_capacity and lingkungan_pool:
-                nama = lingkungan_pool.pop()
-                assignments[slot].append(nama)
-                total_people += next((l['jumlah_tatib'] for l in lingkungan_list if l['nama'] == nama), 0)
+            used_lingkungan = set()
+            while total_people < slot_capacity and total_people < max_tatib and lingkungan_pool:
+                l = lingkungan_pool.pop()
+                if l['nama'] not in used_lingkungan:
+                    assignments[slot].append(l['nama'])
+                    total_people += l['jumlah_tatib']
+                    used_lingkungan.add(l['nama'])
         # Save all fields to DB
         natal_assignments_collection.replace_one(
             {"_id": "natal"},
@@ -439,9 +441,49 @@ elif st.session_state.page == "ml_penugasan":
     # Display assignments in table if exists
     if assignments:
         st.write("Tabel Penugasan:")
+
+        # Table header
+        header_cols = st.columns([4, 4, 2, 2])
+        header_cols[0].markdown("<b>Slot</b>", unsafe_allow_html=True)
+        header_cols[1].markdown("<b>Lingkungan</b>", unsafe_allow_html=True)
+        header_cols[2].markdown("<b>Total Tatib</b>", unsafe_allow_html=True)
+        header_cols[3].markdown("<b>Randomize</b>", unsafe_allow_html=True)
+
+        # Table rows
         for slot, names in assignments.items():
-            st.write(f"**{slot}**")
-            st.table(pd.DataFrame({"Lingkungan": names}))
+            lingkungan_val = ", ".join(names)
+            # Calculate total tatib for assigned lingkungan
+            total_tatib = sum(
+                next((l['jumlah_tatib'] for l in lingkungan_list if l['nama'] == name), 0)
+                for name in names
+            )
+            row_cols = st.columns([4, 4, 2, 2])
+            row_cols[0].markdown(f"<div style='text-align:center'>{slot}</div>", unsafe_allow_html=True)
+            row_cols[1].markdown(f"<div style='text-align:center'>{lingkungan_val}</div>", unsafe_allow_html=True)
+            row_cols[2].markdown(f"<div style='text-align:center'>{total_tatib}</div>", unsafe_allow_html=True)
+            button_key = f"randomize_{slot}"
+
+            if row_cols[3].button("Randomize", key=button_key):
+                # Re-randomize lingkungan for this slot until jumlah tatib >= slot_capacity
+                lingkungan_pool = lingkungan_list.copy()
+                random.shuffle(lingkungan_pool)
+                new_names = []
+                total_people = 0
+                used_lingkungan = set()
+                max_tatib = int(slot_capacity * 1.3)
+                while total_people < slot_capacity and total_people < max_tatib and lingkungan_pool:
+                    l = lingkungan_pool.pop()
+                    if l['nama'] not in used_lingkungan:
+                        new_names.append(l['nama'])
+                        total_people += l['jumlah_tatib']
+                        used_lingkungan.add(l['nama'])
+                assignments[slot] = new_names
+                natal_assignments_collection.update_one(
+                    {"_id": "natal"},
+                    {"$set": {"assignments": assignments}}
+                )
+                st.success(f"Randomized lingkungan for {slot}")
+                st.rerun()
 
     # sidebar navigation
     with st.sidebar:
