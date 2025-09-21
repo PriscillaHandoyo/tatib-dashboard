@@ -379,45 +379,62 @@ elif st.session_state.page == "paskah_penugasan":
 # MISA LAINNYA
 elif st.session_state.page == "ml_penugasan":
     st.header("Penugasan Khusus (Misa Lainnya)")
-    event_date = st.date_input("Tanggal Event")
-    slot_times = st.text_input("Jam Slot (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
-    slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=40)
-    lingkungan_list = list(lingkungan_collection.find())
 
-    # Load assignments from DB
+    lingkungan_list = list(lingkungan_collection.find())
+    lingkungan_names = [l['nama'] for l in lingkungan_list]
+
+    # Load assignments and form fields from DB
     saved = natal_assignments_collection.find_one({"_id": "natal"})
-    assignments = saved["assignments"] if saved else {}
+    assignments = saved["assignments"] if saved and "assignments" in saved else {}
+    default_nama_misa = saved.get("nama_misa", "") if saved else ""
+    default_event_date = datetime.strptime(saved.get("event_date", ""), '%Y-%m-%d') if saved and "event_date" in saved else datetime.today()
+    default_slot_times = saved.get("slot_times", "") if saved else ""
+    default_slot_capacity = saved.get("slot_capacity", 40) if saved else 40
+
+    # Form fields with defaults
+    nama_misa = st.text_input("Nama Misa", value=default_nama_misa)
+    event_date = st.date_input("Tanggal Event", value=default_event_date)
+    slot_times = st.text_input("Jam Slot (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)", value=default_slot_times)
+    slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=default_slot_capacity)
 
     if st.button("Buat Penugasan"):
-        slots = [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00" for jam in slot_times.split(",") if jam.strip()]
+        slots = [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 {nama_misa}" for jam in slot_times.split(",") if jam.strip()]
         assignments = {}
-        lingkungan_idx = 0
-        n_lingkungan = len(lingkungan_list)
+        lingkungan_pool = lingkungan_names.copy()
+        random.shuffle(lingkungan_pool)
         for slot in slots:
             assignments[slot] = []
+            if lingkungan_pool:
+                assignments[slot].append(lingkungan_pool.pop())
             total_people = 0
-            count = 0
-            while total_people < slot_capacity and count < n_lingkungan:
-                l = lingkungan_list[lingkungan_idx % n_lingkungan]
-                if l['nama'] not in [nama for slot_list in assignments.values() for nama in slot_list]:
-                    assignments[slot].append(l['nama'])
-                    total_people += l['jumlah_tatib']
-                    lingkungan_idx += 1
-                    count += 1
-                else:
-                    lingkungan_idx += 1
-                    count += 1
-        # Save to DB
+            while total_people < slot_capacity and lingkungan_pool:
+                nama = lingkungan_pool.pop()
+                assignments[slot].append(nama)
+                total_people += next((l['jumlah_tatib'] for l in lingkungan_list if l['nama'] == nama), 0)
+        # Save all fields to DB
         natal_assignments_collection.replace_one(
             {"_id": "natal"},
-            {"_id": "natal", "assignments": assignments},
+            {
+                "_id": "natal",
+                "nama_misa": nama_misa,
+                "event_date": event_date.strftime('%Y-%m-%d'),
+                "slot_times": slot_times,
+                "slot_capacity": slot_capacity,
+                "assignments": assignments
+            },
             upsert=True
         )
+        st.rerun()
 
     # Delete Table button
     if st.button("Hapus Tabel Penugasan"):
         natal_assignments_collection.delete_one({"_id": "natal"})
         assignments = {}
+        st.rerun()
+    
+    # Show nama misa and tanggal as subheader
+    if nama_misa and event_date:
+        st.subheader(f"{nama_misa} - {event_date.strftime('%d-%m-%Y')}")
 
     # Display assignments in table if exists
     if assignments:
