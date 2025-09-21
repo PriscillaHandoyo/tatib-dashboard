@@ -300,72 +300,167 @@ elif st.session_state.page == "kalender_penugasan":
 # -------------------------------------------------------------------------------
 # PASKAH
 elif st.session_state.page == "paskah_penugasan":
-    st.header("Penugasan Khusus (Paskah)")
-    event_date = st.date_input("Tanggal Event")
-    slot_times_ra = st.text_input("Jam Slot: Rabu Abu (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
-    slot_times_mp = st.text_input("Jam Slot: Minggu Palma (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
-    slot_times_kp = st.text_input("Jam Slot: Kamis Putih (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
-    slot_times_ja = st.text_input("Jam Slot: Jumat Agung (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
-    slot_times_sc = st.text_input("Jam Slot: Sabtu Suci (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
-    slot_times_mpas = st.text_input("Jam Slot: Minggu Paskah (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)")
-    slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=40)
-    
+    st.header("Penugasan Khusus (Tri-Hari Suci)")
+
     lingkungan_list = list(lingkungan_collection.find())
+    lingkungan_names = [l['nama'] for l in lingkungan_list]
 
-    # Load assignments from DB
+    # Load assignments and form fields from DB
     saved = paskah_assignments_collection.find_one({"_id": "paskah"})
-    assignments = saved["assignments"] if saved else {}
+    assignments = saved["assignments"] if saved and "assignments" in saved else {}
+    default_event_date = datetime.strptime(saved.get("event_date", ""), '%Y-%m-%d') if saved and "event_date" in saved else datetime.today()
+    default_slot_times_kp = saved.get("slot_times_kp", "") if saved else ""
+    default_slot_times_ja = saved.get("slot_times_ja", "") if saved else ""
+    default_slot_times_sc = saved.get("slot_times_sc", "") if saved else ""
+    default_slot_capacity = saved.get("slot_capacity", 40) if saved else 40
 
+    # Form fields with defaults
+    event_date = st.date_input("Tanggal Event", value=default_event_date)
+    slot_times_kp = st.text_input("Jam Slot: Kamis Putih (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)", value=default_slot_times_kp)
+    slot_times_ja = st.text_input("Jam Slot: Jumat Agung (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)", value=default_slot_times_ja)
+    slot_times_sc = st.text_input("Jam Slot: Sabtu Suci (pisahkan dengan koma, contoh: 06.00, 09.00, 11.00)", value=default_slot_times_sc)
+    slot_capacity = st.number_input("Jumlah Tatib per Slot", min_value=1, value=default_slot_capacity)
+
+    # Create slots for all events
+    all_slots = []
+    if slot_times_kp:
+        all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Kamis Putih" for jam in slot_times_kp.split(",") if jam.strip()]
+    if slot_times_ja:
+        all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Jumat Agung" for jam in slot_times_ja.split(",") if jam.strip()]
+    if slot_times_sc:
+        all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Sabtu Suci" for jam in slot_times_sc.split(",") if jam.strip()]
+
+    # Assignment logic (randomized, min slot_capacity, max 30% over)
     if st.button("Buat Penugasan"):
-        all_slots = []
-        if slot_times_ra:
-            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Rabu Abu" for jam in slot_times_ra.split(",") if jam.strip()]
-        if slot_times_mp:
-            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Minggu Palma" for jam in slot_times_mp.split(",") if jam.strip()]
-        if slot_times_kp:
-            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Kamis Putih" for jam in slot_times_kp.split(",") if jam.strip()]
-        if slot_times_ja:
-            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Jumat Agung" for jam in slot_times_ja.split(",") if jam.strip()]
-        if slot_times_sc:
-            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Sabtu Suci" for jam in slot_times_sc.split(",") if jam.strip()]
-        if slot_times_mpas:
-            all_slots += [f"{event_date.strftime('%Y-%m-%d')}T{jam.strip()}:00 Minggu Paskah" for jam in slot_times_mpas.split(",") if jam.strip()]
-        
         assignments = {}
-        lingkungan_idx = 0
-        n_lingkungan = len(lingkungan_list)
+        max_tatib = int(slot_capacity * 1.3)
         for slot in all_slots:
             assignments[slot] = []
+            lingkungan_pool = lingkungan_list.copy()
+            random.shuffle(lingkungan_pool)
             total_people = 0
-            count = 0
-            while total_people < slot_capacity and count < n_lingkungan:
-                l = lingkungan_list[lingkungan_idx % n_lingkungan]
-                if l['nama'] not in [nama for slot_list in assignments.values() for nama in slot_list]:
+            used_lingkungan = set()
+            while total_people < slot_capacity and total_people < max_tatib and lingkungan_pool:
+                l = lingkungan_pool.pop()
+                if l['nama'] not in used_lingkungan:
                     assignments[slot].append(l['nama'])
                     total_people += l['jumlah_tatib']
-                    lingkungan_idx += 1
-                    count += 1
-                else:
-                    lingkungan_idx += 1
-                    count += 1
+                    used_lingkungan.add(l['nama'])
         # Save to DB
         paskah_assignments_collection.replace_one(
             {"_id": "paskah"},
-            {"_id": "paskah", "assignments": assignments},
+            {
+                "_id": "paskah",
+                "event_date": event_date.strftime('%Y-%m-%d'),
+                "slot_times_kp": slot_times_kp,
+                "slot_times_ja": slot_times_ja,
+                "slot_times_sc": slot_times_sc,
+                "slot_capacity": slot_capacity,
+                "assignments": assignments
+            },
             upsert=True
         )
+        st.rerun()
 
     # Delete Table button
     if st.button("Hapus Tabel Penugasan"):
         paskah_assignments_collection.delete_one({"_id": "paskah"})
         assignments = {}
+        st.rerun()
+    
+    # Show subheader with event name and date
+    st.subheader(f"Tri-Hari Suci - {event_date.strftime('%d-%m-%Y')}")
 
     # Display assignments in table if exists
     if assignments:
         st.write("Tabel Penugasan:")
+
+        # Table header
+        header_cols = st.columns([4, 4, 2, 2])
+        header_cols[0].markdown("<b>Slot</b>", unsafe_allow_html=True)
+        header_cols[1].markdown("<b>Lingkungan</b>", unsafe_allow_html=True)
+        header_cols[2].markdown("<b>Total Tatib</b>", unsafe_allow_html=True)
+        header_cols[3].markdown("<b>Randomize</b>", unsafe_allow_html=True)
+
+        # Table rows
         for slot, names in assignments.items():
-            st.write(f"**{slot}**")
-            st.table(pd.DataFrame({"Lingkungan": names}))
+            lingkungan_val = ", ".join(names)
+            total_tatib = sum(
+                next((l['jumlah_tatib'] for l in lingkungan_list if l['nama'] == name), 0)
+                for name in names
+            )
+            row_cols = st.columns([4, 4, 2, 2])
+            row_cols[0].markdown(f"<div style='text-align:center'>{slot}</div>", unsafe_allow_html=True)
+            row_cols[1].markdown(f"<div style='text-align:center'>{lingkungan_val}</div>", unsafe_allow_html=True)
+            row_cols[2].markdown(f"<div style='text-align:center'>{total_tatib}</div>", unsafe_allow_html=True)
+            button_key = f"randomize_{slot}"
+
+            if row_cols[3].button("Randomize", key=button_key):
+                # Re-randomize lingkungan for this slot until jumlah tatib >= slot_capacity
+                lingkungan_pool = lingkungan_list.copy()
+                random.shuffle(lingkungan_pool)
+                new_names = []
+                total_people = 0
+                used_lingkungan = set()
+                max_tatib = int(slot_capacity * 1.3)
+                while total_people < slot_capacity and total_people < max_tatib and lingkungan_pool:
+                    l = lingkungan_pool.pop()
+                    if l['nama'] not in used_lingkungan:
+                        new_names.append(l['nama'])
+                        total_people += l['jumlah_tatib']
+                        used_lingkungan.add(l['nama'])
+                assignments[slot] = new_names
+                paskah_assignments_collection.update_one(
+                    {"_id": "paskah"},
+                    {"$set": {"assignments": assignments}}
+                )
+                st.success(f"Randomized lingkungan for {slot}")
+                st.rerun()
+
+        # PDF export
+        def generate_pdf_reportlab(assignments, lingkungan_list):
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4)
+            styles = getSampleStyleSheet()
+            elements = []
+
+            # Title
+            elements.append(Paragraph(f"Tabel Penugasan Paskah", styles['Title']))
+            elements.append(Spacer(1, 12))
+
+            # Table data
+            data = [["Slot", "Lingkungan", "Total Tatib"]]
+            for slot, names in assignments.items():
+                lingkungan_val = ", ".join(names)
+                total_tatib = sum(
+                    next((l['jumlah_tatib'] for l in lingkungan_list if l['nama'] == name), 0)
+                    for name in names
+                )
+                data.append([slot, lingkungan_val, str(total_tatib)])
+
+            table = Table(data, colWidths=[200, 200, 80])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.grey),
+                ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+                ('ALIGN',(0,0),(-1,-1),'CENTER'),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0,0), (-1,0), 12),
+                ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ]))
+            elements.append(table)
+            doc.build(elements)
+            pdf = buffer.getvalue()
+            buffer.close()
+            return pdf
+
+        if st.button("Download Tabel Penugasan as PDF"):
+            pdf_file = generate_pdf_reportlab(assignments, lingkungan_list)
+            st.download_button(
+                label="Click here to download PDF",
+                data=pdf_file,
+                file_name=f"tabel_penugasan_paskah.pdf",
+                mime="application/pdf"
+            )
 
     # sidebar navigation
     with st.sidebar:
