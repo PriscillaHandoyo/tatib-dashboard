@@ -3,11 +3,15 @@ import hashlib
 from components.logic import logic
 import streamlit as st
 from db.mongodb import get_db
-from streamlit_calendar import calendar
 import pandas as pd
 import json
 import calendar as pycalendar
 import random
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+import io
 
 st.set_page_config(layout="wide") 
 
@@ -484,6 +488,51 @@ elif st.session_state.page == "ml_penugasan":
                 )
                 st.success(f"Randomized lingkungan for {slot}")
                 st.rerun()
+
+    def generate_pdf_reportlab(assignments, lingkungan_list):
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Title
+        elements.append(Paragraph(f"Tabel Penugasan {nama_misa}", styles['Title']))
+        elements.append(Spacer(1, 12))
+
+        # Table data
+        data = [["Slot", "Lingkungan", "Total Tatib"]]
+        for slot, names in assignments.items():
+            lingkungan_val = ", ".join(names)
+            total_tatib = sum(
+                next((l['jumlah_tatib'] for l in lingkungan_list if l['nama'] == name), 0)
+                for name in names
+            )
+            data.append([slot, lingkungan_val, str(total_tatib)])
+
+        table = Table(data, colWidths=[200, 200, 80])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+            ('ALIGN',(0,0),(-1,-1),'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 12),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ]))
+        elements.append(table)
+        doc.build(elements)
+        pdf = buffer.getvalue()
+        buffer.close()
+        return pdf
+
+    if assignments:
+        if st.button("Download Tabel Penugasan as PDF"):
+            pdf_file = generate_pdf_reportlab(assignments, lingkungan_list)
+            st.download_button(
+                label="Click here to download PDF",
+                data=pdf_file,
+                file_name=f"tabel_penugasan_{nama_misa}.pdf",
+                mime="application/pdf"
+            )
 
     # sidebar navigation
     with st.sidebar:
