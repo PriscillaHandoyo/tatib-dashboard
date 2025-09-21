@@ -7,6 +7,7 @@ from streamlit_calendar import calendar
 import pandas as pd
 import json
 import calendar as pycalendar
+import random
 
 st.set_page_config(layout="wide") 
 
@@ -165,9 +166,9 @@ elif st.session_state.page == "form_lingkungan":
 # -------------------------------------------------------------------------------
 # KALENDER PENUGASAN
 elif st.session_state.page == "kalender_penugasan":
-    st.header("Kalender Penugasan")
+    st.header("Tabel Penugasan Bulanan")
 
-        # Month/year selector
+    # Month/year selector
     today = datetime.today()
     selected_year = st.number_input("Tahun", min_value=2020, max_value=2100, value=today.year, step=1)
     selected_month = st.selectbox(
@@ -177,75 +178,108 @@ elif st.session_state.page == "kalender_penugasan":
         index=today.month-1
     )
 
-    # Add instruction banner
-    st.info("Gunakan pilihan bulan/tahun di atas untuk mengganti penugasan. Tombol panah di kalender tidak aktif dan tidak mengubah data penugasan.")
+    st.info("Gunakan pilihan bulan/tahun di atas untuk mengganti penugasan.")
+
+    st.subheader(f"Penugasan Bulan {selected_month}-{selected_year}")
 
     lingkungan_list = list(lingkungan_collection.find())
+    lingkungan_names = [l['nama'] for l in lingkungan_list]
 
     # Generate slots for selected month/year
     cal = pycalendar.Calendar()
     saturdays = [d for d in cal.itermonthdates(selected_year, selected_month) if d.weekday() == 5 and d.month == selected_month]
     sundays = [d for d in cal.itermonthdates(selected_year, selected_month) if d.weekday() == 6 and d.month == selected_month]
 
-    available_slots = {}
+    jam_misa_sabtu = ["17.00"]
+    jam_misa_minggu = ["08.00", "11.00", "17.00"]
+    jam_misa_p2 = ["07.30", "10.30"]
+
+    # Prepare all slot keys for the month
+    slot_keys = []
     for date in saturdays:
-        available_slots[f"{date.strftime('%Y-%m-%d')}T17:00:00"] = 20
+        slot_keys.append(f"{date.strftime('%Y-%m-%d')}T17.00:00")
     for date in sundays:
-        available_slots[f"{date.strftime('%Y-%m-%d')}T08:00:00"] = 20
-        available_slots[f"{date.strftime('%Y-%m-%d')}T11:00:00"] = 20
-        available_slots[f"{date.strftime('%Y-%m-%d')}T17:00:00"] = 20
-        available_slots[f"{date.strftime('%Y-%m-%d')}T07:30:00"] = 20
-        available_slots[f"{date.strftime('%Y-%m-%d')}T10:30:00"] = 20
+        slot_keys.extend([
+            f"{date.strftime('%Y-%m-%d')}T08.00:00",
+            f"{date.strftime('%Y-%m-%d')}T11.00:00",
+            f"{date.strftime('%Y-%m-%d')}T17.00:00",
+            f"{date.strftime('%Y-%m-%d')}T07.30:00",
+            f"{date.strftime('%Y-%m-%d')}T10.30:00"
+        ])
 
-    def get_global_rotation_idx(year, month, all_slots_per_month):
-        # Calculate how many slots have been assigned before this month
-        # For example, if each month has 8 slots, and you are in October (month=10), and you started in September (month=9):
-        # total_slots_before = (month - start_month) * slots_per_month
-        # If you want to start from January, use (month-1)
-        return (year * 12 + month - 1) * all_slots_per_month
+    # Assign each lingkungan only once per month, randomized
+    if (
+        "assign_logic" not in st.session_state
+        or st.session_state.get("assign_logic_month") != selected_month
+        or st.session_state.get("assign_logic_year") != selected_year
+    ):
+        assign_logic = {}
+        lingkungan_pool = lingkungan_names.copy()
+        random.shuffle(lingkungan_pool)
+        # Only assign each lingkungan once per month
+        for i, slot_key in enumerate(slot_keys):
+            if lingkungan_pool:
+                assign_logic[slot_key] = [lingkungan_pool.pop()]
+            else:
+                assign_logic[slot_key] = []  # Leave empty if all lingkungan already assigned
+        st.session_state.assign_logic = assign_logic
+        st.session_state.assign_logic_month = selected_month
+        st.session_state.assign_logic_year = selected_year
 
-    slots_per_month = len(saturdays) + len(sundays) * 5  # adjust based on your slot generation
-    rotation_idx = get_global_rotation_idx(selected_year, selected_month, slots_per_month)
+    def get_assignment(date, jam):
+        slot_key = f"{date.strftime('%Y-%m-%d')}T{jam}:00"
+        return ", ".join(st.session_state.assign_logic.get(slot_key, []))
 
-    assign_logic, _ = logic(
-        lingkungan_list=lingkungan_list,
-        year=selected_year,
-        month=selected_month,
-        available_slots=available_slots,
-        start_idx=rotation_idx
-    )
+    def render_aligned_table(date, jam_list, lingkungan_list):
+        st.markdown(
+            "<table style='width:100%'><tr><th>Jam Misa</th><th>Lingkungan</th><th>Randomize</th></tr>",
+            unsafe_allow_html=True
+        )
+        for jam in jam_list:
+            slot_key = f"{date.strftime('%Y-%m-%d')}T{jam}:00"
+            lingkungan_val = ", ".join(st.session_state.assign_logic.get(slot_key, []))
+            cols = st.columns([2, 4, 2])
+            cols[0].markdown(f"<div style='text-align:center'>{jam}</div>", unsafe_allow_html=True)
+            cols[1].markdown(f"<div style='text-align:center'>{lingkungan_val}</div>", unsafe_allow_html=True)
+            button_key = f"randomize_{slot_key}"
 
-    penugasan = []
-    for slot, lingkungan_names in assign_logic.items():
-        for nama in lingkungan_names:
-            penugasan.append({
-                "title": f"{nama}",
-                "start": slot,
-                "end": slot
-            })
+            # Find lingkungan already assigned for this month
+            assigned_lingkungan = set()
+            for v in st.session_state.assign_logic.values():
+                assigned_lingkungan.update(v)
+            # Only allow lingkungan not yet assigned this month
+            available_lingkungan = [l for l in lingkungan_names if l not in assigned_lingkungan or l == lingkungan_val]
 
-    calendar_options = {
-        "editable": True,
-        "selectable": True,
-        "initialView": "dayGridMonth",
-        "initialDate": f"{selected_year}-{selected_month:02d}-01",  # <-- Add this line
-        "headerToolbar": {
-            "left": "prev,next today",
-            "center": "title",
-            "right": "timeGridDay,timeGridWeek,dayGridMonth"
-        },
-        "events": penugasan,
-    }
+            if cols[2].button("Randomize", key=button_key):
+                # Remove current assignment from available_lingkungan so it can be replaced
+                if lingkungan_val:
+                    available_lingkungan = [l for l in available_lingkungan if l != lingkungan_val]
+                if available_lingkungan:
+                    random_lingkungan = random.choice(available_lingkungan)
+                    st.session_state.assign_logic[slot_key] = [random_lingkungan]
+                    st.success(f"Randomized: {random_lingkungan} for {jam} on {date.strftime('%d-%m-%Y')}")
+                    st.rerun()
+                else:
+                    st.warning("There are no other lingkungan available for this month.")
+        st.markdown("</table>", unsafe_allow_html=True)
 
-    st.markdown("""
-    <style>
-    .fc-header-toolbar{
-        display: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Display tables for Saturdays
+    st.subheader("Sabtu")
+    for date in saturdays:
+        st.markdown(f"**{date.strftime('%d-%m-%Y')} (Sabtu)**")
+        render_aligned_table(date, jam_misa_sabtu, lingkungan_list)
 
-    calendar_events = calendar(options=calendar_options)
+    # Display tables for Sundays (Yakobus)
+    st.subheader("Minggu (Yakobus)")
+    for date in sundays:
+        st.markdown(f"**{date.strftime('%d-%m-%Y')} (Minggu Yakobus)**")
+        render_aligned_table(date, jam_misa_minggu, lingkungan_list)
+
+    # Display tables for Sundays (P2)
+    st.subheader("Minggu (Stasi P2)")
+    for date in sundays:
+        st.markdown(f"**{date.strftime('%d-%m-%Y')} (Minggu Stasi P2)**")
+        render_aligned_table(date, jam_misa_p2, lingkungan_list)
 
     # sidebar navigation
     with st.sidebar:
